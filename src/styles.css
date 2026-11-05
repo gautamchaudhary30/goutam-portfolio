@@ -54,10 +54,6 @@ html{scroll-behavior:smooth;scroll-padding-top:90px}
 
 
 
-/* Fixed viewport crosshair: stays visible over every portfolio section */
-.portfolio-root{position:relative;min-height:100vh}
-.crosshair-overlay{display:block;pointer-events:none!important;mix-blend-mode:normal}
-
 /* Fix ID-card canvas positioning: avoid legacy .lanyard strap styles */
 .hero{grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr)}
 .hero>div{min-width:0}
