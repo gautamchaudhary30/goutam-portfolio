@@ -1,77 +1,415 @@
 import React, { useEffect, useRef } from 'react';
 
-export default function Crosshair({
-  containerRef, color = '#ffffff', targetEffect = 'lock', thickness = 1,
-  opacity = 0.85, smoothing = 0.35, showCoordinates = true,
-  lineStyle = 'solid', blendMode = 'normal', gap = 0,
-  fade = 0, clickPulse = true, hideCursor = false
-}) {
+const LINE_STYLES = ['solid', 'dashed', 'dotted'];
+const EFFECTS = ['lock', 'glitch', 'none'];
+const FONT = '500 10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+const HIDDEN = 'crosshair-cursor-hidden';
+
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+const toRgb = (ctx, color) => {
+  ctx.fillStyle = '#000';
+  ctx.fillStyle = color;
+  const value = String(ctx.fillStyle);
+  if (value.startsWith('#')) {
+    const hex = parseInt(value.slice(1, 7), 16);
+    return { r: (hex >> 16) & 255, g: (hex >> 8) & 255, b: hex & 255, a: 1 };
+  }
+  const parts = value.match(/[\d.]+/g)?.map(Number) ?? [255, 255, 255, 1];
+  return { r: parts[0], g: parts[1], b: parts[2], a: parts[3] ?? 1 };
+};
+
+const Crosshair = ({
+  color = '#ffffff',
+  containerRef = null,
+  thickness = 1,
+  opacity = 0.85,
+  lineStyle = 'solid',
+  gap = 0,
+  fade = 0,
+  smoothing = 0.35,
+  showCoordinates = true,
+  targetEffect = 'lock',
+  targetSelector = 'a, button, [data-crosshair-target]',
+  clickPulse = true,
+  hideCursor = false,
+  blendMode = 'normal',
+  className = '',
+  style
+}) => {
   const canvasRef = useRef(null);
+  const wakeRef = useRef(null);
+  const settings = {
+    color,
+    thickness: clamp(thickness, 0.5, 8),
+    opacity: clamp(opacity, 0, 1),
+    lineStyle: LINE_STYLES.includes(lineStyle) ? lineStyle : 'solid',
+    gap: Math.max(0, gap),
+    fade: clamp(fade, 0, 1),
+    smoothing: clamp(smoothing, 0, 1),
+    showCoordinates,
+    targetEffect: EFFECTS.includes(targetEffect) ? targetEffect : 'lock',
+    targetSelector,
+    clickPulse,
+    hideCursor
+  };
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+
+  useEffect(() => {
+    wakeRef.current?.();
+  });
+
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    let width = 0, height = 0, dpr = 1, raf = 0, alive = true;
-    let pointer = {x:-100,y:-100}, current = {x:-100,y:-100};
-    let target = null, pulseAt = 0, visible = false, lastMove = 0;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return undefined;
+    const host = containerRef?.current ?? null;
+    const scope = host ?? window;
+    const cursorOwner = host ?? document.documentElement;
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    const state = {
+      x: 0, y: 0, tx: 0, ty: 0, clientX: 0, clientY: 0,
+      inside: false, seen: false, presence: 0, glitch: 0,
+      target: null,
+      lock: { x: 0, y: 0, w: 0, h: 0, alpha: 0 },
+      pulses: []
+    };
+    const size = { w: 0, h: 0, dpr: 1 };
+    let ink = toRgb(ctx, settingsRef.current.color);
+    let inkSource = settingsRef.current.color;
+    let raf = 0;
+    let last = 0;
+    let alive = true;
+
+    const wake = () => {
+      if (raf || !alive) return;
+      last = performance.now();
+      raf = requestAnimationFrame(tick);
+    };
 
     const resize = () => {
-      width = window.innerWidth; height = window.innerHeight;
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = Math.round(width*dpr); canvas.height = Math.round(height*dpr);
-      canvas.style.width = width+'px'; canvas.style.height = height+'px';
-      ctx.setTransform(dpr,0,0,dpr,0,0);
+      const rect = canvas.getBoundingClientRect();
+      size.dpr = Math.min(window.devicePixelRatio || 1, 2);
+      size.w = rect.width;
+      size.h = rect.height;
+      canvas.width = Math.max(1, Math.round(rect.width * size.dpr));
+      canvas.height = Math.max(1, Math.round(rect.height * size.dpr));
+      wake();
     };
-    const move = e => {
-      pointer = {x:e.clientX,y:e.clientY}; visible = true; lastMove = performance.now();
-      const el = e.target?.closest?.('a,button,[role="button"],input,textarea,select,.project,.chips span');
-      if (el && targetEffect === 'lock') {
-        const r=el.getBoundingClientRect();
-        target={x:r.left+r.width/2,y:r.top+r.height/2,w:r.width,h:r.height};
-      } else target=null;
+
+    const rgba = alpha => `rgba(${ink.r}, ${ink.g}, ${ink.b}, ${clamp(alpha * ink.a, 0, 1)})`;
+    const crisp = (value, width) => {
+      const device = Math.round(width * size.dpr);
+      return (Math.round(value * size.dpr) + (device % 2 ? 0.5 : 0)) / size.dpr;
     };
-    const leave = () => { visible=false; target=null; };
-    const click = e => { if(clickPulse){pointer={x:e.clientX,y:e.clientY};pulseAt=performance.now();} };
-    const draw = now => {
-      if(!alive)return;
-      ctx.clearRect(0,0,width,height);
-      const ease=Math.max(.04,Math.min(.95,smoothing)), dest=target||pointer;
-      current.x+=(dest.x-current.x)*ease; current.y+=(dest.y-current.y)*ease;
-      if(visible && current.x>-50 && current.y>-50 && current.x<width+50 && current.y<height+50){
-        ctx.save();ctx.globalAlpha=opacity;ctx.strokeStyle=color;ctx.fillStyle=color;
-        ctx.lineWidth=thickness;ctx.globalCompositeOperation=blendMode==='difference'?'difference':'source-over';
-        ctx.setLineDash(lineStyle==='dashed'?[5,5]:[]);
-        if(target){
-          const w=target.w/2+8,h=target.h/2+8;
-          ctx.strokeRect(current.x-w,current.y-h,w*2,h*2);
-          const arm=7;
-          [[-w,-h],[w,-h],[-w,h],[w,h]].forEach(([x,y])=>{
-            ctx.beginPath();ctx.moveTo(current.x+x+(x<0?0:-arm),current.y+y);
-            ctx.lineTo(current.x+x+(x<0?arm:0),current.y+y);
-            ctx.moveTo(current.x+x,current.y+y+(y<0?0:-arm));
-            ctx.lineTo(current.x+x,current.y+y+(y<0?arm:0));ctx.stroke();
-          });
-        } else {
-          const g=gap;ctx.beginPath();
-          ctx.moveTo(current.x-18-g,current.y);ctx.lineTo(current.x-g,current.y);
-          ctx.moveTo(current.x+g,current.y);ctx.lineTo(current.x+18+g,current.y);
-          ctx.moveTo(current.x,current.y-18-g);ctx.lineTo(current.x,current.y-g);
-          ctx.moveTo(current.x,current.y+g);ctx.lineTo(current.x,current.y+18+g);
-          ctx.stroke();ctx.beginPath();ctx.arc(current.x,current.y,2,0,Math.PI*2);ctx.fill();
-        }
-        if(showCoordinates){ctx.font='10px monospace';ctx.fillText(Math.round(current.x)+' / '+Math.round(current.y),current.x+14,current.y+(target?target.h/2+22:28));}
-        if(clickPulse&&pulseAt){const age=now-pulseAt;if(age<520){ctx.globalAlpha=opacity*(1-age/520);ctx.beginPath();ctx.arc(pointer.x,pointer.y,8+age*.055,0,Math.PI*2);ctx.stroke();}else pulseAt=0;}
-        ctx.restore();
+
+    const tag = (text, x, y, align) => {
+      ctx.font = FONT;
+      const width = ctx.measureText(text).width + 10;
+      const height = 16;
+      let left = align === 'center' ? x - width / 2 : x;
+      let top = align === 'middle' ? y - height / 2 : y;
+      left = clamp(left, 4, size.w - width - 4);
+      top = clamp(top, 4, size.h - height - 4);
+      const light = ink.r * 0.2126 + ink.g * 0.7152 + ink.b * 0.0722 > 150;
+      ctx.fillStyle = rgba(1);
+      ctx.beginPath();
+      ctx.roundRect(left, top, width, height, 3);
+      ctx.fill();
+      ctx.fillStyle = light ? '#0a0a0a' : '#ffffff';
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'center';
+      ctx.fillText(text, left + width / 2, top + height / 2 + 0.5);
+    };
+
+    const segment = (x1, y1, x2, y2, horizontal, s) => {
+      const length = horizontal ? x2 - x1 : y2 - y1;
+      if (length <= 0) return;
+      if (s.fade > 0) {
+        const gradient = horizontal
+          ? ctx.createLinearGradient(0, 0, size.w, 0)
+          : ctx.createLinearGradient(0, 0, 0, size.h);
+        const at = clamp(horizontal ? state.x / size.w : state.y / size.h, 0.001, 0.999);
+        gradient.addColorStop(0, rgba(1 - s.fade));
+        gradient.addColorStop(at, rgba(1));
+        gradient.addColorStop(1, rgba(1 - s.fade));
+        ctx.strokeStyle = gradient;
+      } else {
+        ctx.strokeStyle = rgba(1);
       }
-      raf=requestAnimationFrame(draw);
+      ctx.beginPath();
+      if (state.glitch > 0.01) {
+        const pieces = Math.max(4, Math.round(length / 28));
+        for (let i = 0; i < pieces; i++) {
+          const jitter = (Math.random() - 0.5) * 14 * state.glitch;
+          const from = i / pieces;
+          const to = (i + 1) / pieces;
+          if (horizontal) {
+            ctx.moveTo(x1 + length * from, y1 + jitter);
+            ctx.lineTo(x1 + length * to, y1 + jitter);
+          } else {
+            ctx.moveTo(x1 + jitter, y1 + length * from);
+            ctx.lineTo(x1 + jitter, y1 + length * to);
+          }
+        }
+      } else {
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+      }
+      ctx.stroke();
     };
+
+    const brackets = (x, y, w, h, alpha) => {
+      const arm = Math.min(14, w / 3, h / 3);
+      ctx.strokeStyle = rgba(alpha);
+      ctx.lineWidth = Math.max(1.5, settingsRef.current.thickness);
+      ctx.setLineDash([]);
+      ctx.lineCap = 'square';
+      ctx.beginPath();
+      ctx.moveTo(x, y + arm); ctx.lineTo(x, y); ctx.lineTo(x + arm, y);
+      ctx.moveTo(x + w - arm, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + arm);
+      ctx.moveTo(x + w, y + h - arm); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w - arm, y + h);
+      ctx.moveTo(x + arm, y + h); ctx.lineTo(x, y + h); ctx.lineTo(x, y + h - arm);
+      ctx.stroke();
+    };
+
+    const draw = () => {
+      const s = settingsRef.current;
+      ctx.setTransform(size.dpr, 0, 0, size.dpr, 0, 0);
+      ctx.clearRect(0, 0, size.w, size.h);
+      if (state.presence > 0.001) {
+        ctx.globalAlpha = state.presence * s.opacity * (1 - 0.6 * state.lock.alpha);
+        ctx.lineWidth = s.thickness;
+        ctx.lineCap = s.lineStyle === 'dotted' ? 'round' : 'butt';
+        if (s.lineStyle === 'dashed') ctx.setLineDash([s.thickness * 6, s.thickness * 5]);
+        else if (s.lineStyle === 'dotted') ctx.setLineDash([0, s.thickness * 4]);
+        else ctx.setLineDash([]);
+        const x = crisp(state.x, s.thickness);
+        const y = crisp(state.y, s.thickness);
+        segment(0, y, x - s.gap, y, true, s);
+        segment(x + s.gap, y, size.w, y, true, s);
+        segment(x, 0, x, y - s.gap, false, s);
+        segment(x, y + s.gap, x, size.h, false, s);
+        if (s.hideCursor) {
+          ctx.fillStyle = rgba(1);
+          ctx.beginPath();
+          ctx.arc(state.x, state.y, Math.max(1.5, s.thickness * 1.5), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        if (s.showCoordinates && state.lock.alpha < 0.999) {
+          ctx.globalAlpha = state.presence * s.opacity * (1 - state.lock.alpha);
+          tag(String(Math.round(state.x)), state.x, 8, 'center');
+          tag(String(Math.round(state.y)), 8, state.y, 'middle');
+        }
+      }
+      if (state.lock.alpha > 0.001) {
+        const { x, y, w, h, alpha } = state.lock;
+        ctx.globalAlpha = alpha * s.opacity;
+        brackets(x, y, w, h, 1);
+        if (s.showCoordinates && state.target) {
+          const box = state.target.getBoundingClientRect();
+          tag(`${Math.round(box.width)} × ${Math.round(box.height)}`, x + w / 2, y + h + 8, 'center');
+        }
+      }
+      state.pulses.forEach(pulse => {
+        const t = pulse.age / 0.55;
+        const eased = 1 - (1 - t) ** 3;
+        ctx.globalAlpha = (1 - t) ** 2 * s.opacity;
+        ctx.strokeStyle = rgba(1);
+        ctx.lineWidth = Math.max(1, s.thickness);
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.arc(pulse.x, pulse.y, 3 + 30 * eased, 0, Math.PI * 2);
+        ctx.stroke();
+      });
+      ctx.globalAlpha = 1;
+    };
+
+    const relative = () => {
+      const rect = canvas.getBoundingClientRect();
+      state.tx = state.clientX - rect.left;
+      state.ty = state.clientY - rect.top;
+      return rect;
+    };
+
+    const tick = now => {
+      raf = 0;
+      if (!alive) return;
+      const s = settingsRef.current;
+      const dt = Math.min(0.05, Math.max(0.001, (now - last) / 1000));
+      last = now;
+      if (s.color !== inkSource) {
+        inkSource = s.color;
+        ink = toRgb(ctx, s.color);
+      }
+      const rect = relative();
+      const follow = reduce || s.smoothing === 0 ? 1 : 1 - Math.exp(-dt / (0.008 + s.smoothing * 0.16));
+      state.x += (state.tx - state.x) * follow;
+      state.y += (state.ty - state.y) * follow;
+      const wanted = state.inside ? 1 : 0;
+      state.presence += (wanted - state.presence) * (reduce ? 1 : 1 - Math.exp(-dt / (wanted ? 0.12 : 0.25)));
+      if (Math.abs(wanted - state.presence) < 0.002) state.presence = wanted;
+      const lock = state.lock;
+      const locked = s.targetEffect === 'lock' && state.inside ? state.target : null;
+      let goal;
+      if (locked) {
+        const box = locked.getBoundingClientRect();
+        goal = { x: box.left - rect.left - 6, y: box.top - rect.top - 6, w: box.width + 12, h: box.height + 12 };
+      } else {
+        goal = { x: state.x - 10, y: state.y - 10, w: 20, h: 20 };
+      }
+      const snap = reduce ? 1 : 1 - Math.exp(-dt / 0.085);
+      lock.x += (goal.x - lock.x) * snap;
+      lock.y += (goal.y - lock.y) * snap;
+      lock.w += (goal.w - lock.w) * snap;
+      lock.h += (goal.h - lock.h) * snap;
+      const shown = locked ? 1 : 0;
+      lock.alpha += (shown - lock.alpha) * (reduce ? 1 : 1 - Math.exp(-dt / (shown ? 0.08 : 0.14)));
+      if (Math.abs(shown - lock.alpha) < 0.002) lock.alpha = shown;
+      state.glitch = reduce ? 0 : Math.max(0, state.glitch - dt / 0.5);
+      state.pulses = state.pulses.filter(pulse => (pulse.age += dt) < 0.55);
+      draw();
+      const settling =
+        Math.abs(state.tx - state.x) > 0.05 ||
+        Math.abs(state.ty - state.y) > 0.05 ||
+        state.presence !== wanted ||
+        lock.alpha !== shown ||
+        (locked && Math.abs(goal.w - lock.w) + Math.abs(goal.x - lock.x) + Math.abs(goal.y - lock.y) > 0.1) ||
+        state.glitch > 0 ||
+        state.pulses.length > 0;
+      if (settling) raf = requestAnimationFrame(tick);
+    };
+
+    const setCursorHidden = hidden => {
+      cursorOwner.classList.toggle(HIDDEN, hidden);
+    };
+
+    wakeRef.current = () => {
+      setCursorHidden(state.inside && settingsRef.current.hideCursor);
+      wake();
+    };
+
+    const pick = element => {
+      const s = settingsRef.current;
+      if (s.targetEffect === 'none' || !(element instanceof Element)) return null;
+      let found = null;
+      try {
+        found = element.closest(s.targetSelector);
+      } catch {
+        found = null;
+      }
+      if (found && host && !host.contains(found)) return null;
+      return found;
+    };
+
+    const retarget = element => {
+      const next = pick(element);
+      if (next === state.target) return;
+      state.target = next;
+      if (next && settingsRef.current.targetEffect === 'glitch') state.glitch = 1;
+    };
+
+    const enter = () => {
+      if (!state.seen) {
+        state.seen = true;
+        relative();
+        state.x = state.tx;
+        state.y = state.ty;
+        state.lock.x = state.x - 10;
+        state.lock.y = state.y - 10;
+        state.lock.w = 20;
+        state.lock.h = 20;
+      }
+      state.inside = true;
+      setCursorHidden(settingsRef.current.hideCursor);
+    };
+
+    const leave = () => {
+      state.inside = false;
+      state.target = null;
+      setCursorHidden(false);
+      wake();
+    };
+
+    const onMove = event => {
+      state.clientX = event.clientX;
+      state.clientY = event.clientY;
+      if (event.pointerType === 'touch' && event.buttons === 0) return;
+      enter();
+      retarget(event.target);
+      wake();
+    };
+
+    const onDown = event => {
+      onMove(event);
+      if (!settingsRef.current.clickPulse || reduce) return;
+      relative();
+      state.pulses.push({ x: state.tx, y: state.ty, age: 0 });
+      wake();
+    };
+
+    const onUp = event => {
+      if (event.pointerType !== 'mouse') leave();
+    };
+
+    const onWindowOut = event => {
+      if (!event.relatedTarget) leave();
+    };
+
+    const onScroll = () => {
+      if (!state.inside) return;
+      retarget(document.elementFromPoint(state.clientX, state.clientY));
+      wake();
+    };
+
+    const observer = new ResizeObserver(resize);
+    observer.observe(canvas);
+    scope.addEventListener('pointermove', onMove);
+    scope.addEventListener('pointerdown', onDown);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    window.addEventListener('scroll', onScroll, { capture: true, passive: true });
+    if (host) host.addEventListener('pointerleave', leave);
+    else document.addEventListener('pointerout', onWindowOut);
     resize();
-    window.addEventListener('resize',resize);
-    window.addEventListener('pointermove',move,{passive:true});
-    window.addEventListener('pointerdown',click,{passive:true});
-    window.addEventListener('blur',leave);
-    raf=requestAnimationFrame(draw);
-    return ()=>{alive=false;cancelAnimationFrame(raf);window.removeEventListener('resize',resize);window.removeEventListener('pointermove',move);window.removeEventListener('pointerdown',click);window.removeEventListener('blur',leave);};
-  },[containerRef,color,targetEffect,thickness,opacity,smoothing,showCoordinates,lineStyle,blendMode,gap,fade,clickPulse]);
-  return <canvas ref={canvasRef} className="crosshair-overlay" aria-hidden="true" style={{pointerEvents:'none',position:'fixed',left:0,top:0,zIndex:99999,opacity:hideCursor?0:1}} />;
-}
+
+    return () => {
+      alive = false;
+      cancelAnimationFrame(raf);
+      observer.disconnect();
+      scope.removeEventListener('pointermove', onMove);
+      scope.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      window.removeEventListener('scroll', onScroll, { capture: true });
+      if (host) host.removeEventListener('pointerleave', leave);
+      else document.removeEventListener('pointerout', onWindowOut);
+      setCursorHidden(false);
+      wakeRef.current = null;
+    };
+  }, [containerRef]);
+
+  return (
+    <>
+      <style>{`.${HIDDEN}, .${HIDDEN} * { cursor: none !important; }`}</style>
+      <canvas
+        ref={canvasRef}
+        aria-hidden="true"
+        className={className}
+        style={{
+          position: containerRef ? 'absolute' : 'fixed',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          pointerEvents: 'none',
+          zIndex: 10000,
+          mixBlendMode: blendMode,
+          ...style
+        }}
+      />
+    </>
+  );
+};
+
+export default Crosshair;
