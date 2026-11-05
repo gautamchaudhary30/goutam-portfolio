@@ -29,3 +29,11 @@ html{scroll-behavior:smooth;scroll-padding-top:90px}
 .idcard{will-change:transform;box-shadow:0 25px 70px #0008,0 0 0 1px #ffffff12}
 @media(max-width:720px){.motion-reveal{transform:translate3d(0,25px,0);filter:blur(3px)}.hero>div:first-child.motion-reveal,.idstage.motion-reveal{transform:translate3d(0,25px,0)}}
 @media(prefers-reduced-motion:reduce){.motion-reveal{opacity:1;transform:none;filter:none;transition:none}.orbit,.marquee{animation:none}}
+
+/* Interactive spring lanyard hero card */
+.idstage.interactive{touch-action:pan-y;overflow:visible}
+.lanyard-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.idstage.interactive .idcard{z-index:2;top:125px;left:50%;transform-origin:50% -12px;will-change:transform;transition:box-shadow .25s ease;cursor:grab}
+.idstage.interactive .idcard.is-dragging{cursor:grabbing;box-shadow:0 34px 85px #000a,0 0 0 1px #ffffff2b}
+.idstage.interactive .pull{top:435px;pointer-events:none}
+@media(max-width:720px){.idstage.interactive{height:445px}.idstage.interactive .idcard{top:125px}}
