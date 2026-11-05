@@ -339,7 +339,7 @@ const Crosshair = ({
       if (event.pointerType === 'touch' && event.buttons === 0) return;
       // Hide the crosshair throughout the complete hero section (the ID-card area).
       const hoveredElement = document.elementFromPoint(event.clientX, event.clientY);
-      if (hoveredElement instanceof Element && hoveredElement.closest('.hero')) {
+      if (hoveredElement instanceof Element && hoveredElement.closest('.lanyard-scene')) {
         leave();
         return;
       }
