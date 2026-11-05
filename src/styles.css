@@ -57,3 +57,11 @@ html{scroll-behavior:smooth;scroll-padding-top:90px}
 /* Fixed viewport crosshair: stays visible over every portfolio section */
 .portfolio-root{position:relative;min-height:100vh}
 .crosshair-overlay{display:block;pointer-events:none!important;mix-blend-mode:normal}
+
+/* Fix ID-card canvas positioning: avoid legacy .lanyard strap styles */
+.hero{grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr)}
+.hero>div{min-width:0}
+.hero-portrait{min-width:0;width:100%;overflow:hidden;background:transparent}
+.lanyard-scene{position:relative!important;inset:auto!important;left:auto!important;top:auto!important;width:100%!important;height:100%!important;min-width:0;overflow:hidden;background:transparent!important;transform:none!important}
+.lanyard-scene canvas{position:absolute;inset:0;display:block;width:100%!important;height:100%!important;max-width:100%}
+@media(max-width:720px){.hero{grid-template-columns:minmax(0,1fr)}.hero-portrait{height:520px!important}}
