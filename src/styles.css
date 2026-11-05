@@ -53,8 +53,7 @@ html{scroll-behavior:smooth;scroll-padding-top:90px}
 @media(max-width:720px){.hero-portrait{height:520px!important;margin-top:20px}.lanyard-scene{min-height:500px}}
 
 
-/* Portfolio-wide interactive crosshair */
-.portfolio-root{position:relative;isolation:isolate;min-height:100vh}
+
+/* Fixed viewport crosshair: stays visible over every portfolio section */
+.portfolio-root{position:relative;min-height:100vh}
 .crosshair-overlay{display:block;pointer-events:none!important;mix-blend-mode:normal}
-@media(pointer:coarse){.crosshair-overlay{display:none}}
-@media(prefers-reduced-motion:reduce){.crosshair-overlay{display:none}}
