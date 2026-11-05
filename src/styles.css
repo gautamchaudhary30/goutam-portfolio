@@ -37,3 +37,10 @@ html{scroll-behavior:smooth;scroll-padding-top:90px}
 .idstage.interactive .idcard.is-dragging{cursor:grabbing;box-shadow:0 34px 85px #000a,0 0 0 1px #ffffff2b}
 .idstage.interactive .pull{top:435px;pointer-events:none}
 @media(max-width:720px){.idstage.interactive{height:445px}.idstage.interactive .idcard{top:125px}}
+
+/* Hero portrait: interactive halftone print */
+.hero-portrait{position:relative;width:100%;height:560px;min-width:0;overflow:hidden;background:transparent}
+.halftone-reveal{position:relative;width:100%;height:100%;overflow:hidden;cursor:crosshair}
+.halftone-reveal canvas{display:block;width:100%;height:100%;touch-action:pan-y}
+@media(max-width:720px){.hero-portrait{height:480px;margin-top:20px}.halftone-reveal{min-height:420px}}
+@media(prefers-reduced-motion:reduce){.halftone-reveal canvas{animation:none}}
