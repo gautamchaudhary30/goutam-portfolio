@@ -44,3 +44,10 @@ html{scroll-behavior:smooth;scroll-padding-top:90px}
 .halftone-reveal canvas{display:block;width:100%;height:100%;touch-action:pan-y}
 @media(max-width:720px){.hero-portrait{height:480px;margin-top:20px}.halftone-reveal{min-height:420px}}
 @media(prefers-reduced-motion:reduce){.halftone-reveal canvas{animation:none}}
+
+/* Interactive Lanyard hero card */
+.hero-portrait{height:600px;overflow:hidden}
+.lanyard-scene{position:relative;width:100%;height:100%;overflow:hidden;cursor:grab;touch-action:pan-y}
+.lanyard-scene:active{cursor:grabbing}
+.lanyard-scene canvas{display:block;width:100%;height:100%;touch-action:pan-y}
+@media(max-width:720px){.hero-portrait{height:520px!important;margin-top:20px}.lanyard-scene{min-height:500px}}
