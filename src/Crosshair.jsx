@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 const LINE_STYLES = ['solid', 'dashed', 'dotted'];
 const EFFECTS = ['lock', 'glitch', 'none'];
@@ -390,25 +391,28 @@ const Crosshair = ({
     };
   }, [containerRef]);
 
-  return (
+  if (typeof document === 'undefined') return null;
+  return createPortal(
     <>
       <style>{`.${HIDDEN}, .${HIDDEN} * { cursor: none !important; }`}</style>
       <canvas
         ref={canvasRef}
         aria-hidden="true"
-        className={className}
+        className={`crosshair-overlay ${className}`.trim()}
         style={{
-          position: containerRef ? 'absolute' : 'fixed',
+          position: 'fixed',
           inset: 0,
-          width: '100%',
-          height: '100%',
+          width: '100vw',
+          height: '100vh',
+          display: 'block',
           pointerEvents: 'none',
-          zIndex: 10000,
+          zIndex: 2147483647,
           mixBlendMode: blendMode,
           ...style
         }}
       />
-    </>
+    </>,
+    document.body
   );
 };
 
