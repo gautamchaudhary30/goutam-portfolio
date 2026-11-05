@@ -32,7 +32,6 @@ export default function HalftoneReveal({
         ctx.restore();
       }
       pointer.current.bursts=pointer.current.bursts.filter(b=>(now-b.t)<1100);
-    }
     raf=requestAnimationFrame(draw)};
     image.onload=()=>{resize()};image.onerror=()=>{ctx.clearRect(0,0,width,height)};const observer=new ResizeObserver(resize);observer.observe(wrap);resize();raf=requestAnimationFrame(draw);canvas.addEventListener('pointermove',pointerMove);canvas.addEventListener('pointerleave',pointerLeave);canvas.addEventListener('click',click);
     return()=>{alive=false;cancelAnimationFrame(raf);observer.disconnect();canvas.removeEventListener('pointermove',pointerMove);canvas.removeEventListener('pointerleave',pointerLeave);canvas.removeEventListener('click',click)};
