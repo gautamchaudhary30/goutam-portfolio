@@ -65,3 +65,14 @@ html{scroll-behavior:smooth;scroll-padding-top:90px}
 .lanyard-scene{position:relative!important;inset:auto!important;left:auto!important;top:auto!important;width:100%!important;height:100%!important;min-width:0;overflow:hidden;background:transparent!important;transform:none!important}
 .lanyard-scene canvas{position:absolute;inset:0;display:block;width:100%!important;height:100%!important;max-width:100%}
 @media(max-width:720px){.hero{grid-template-columns:minmax(0,1fr)}.hero-portrait{height:520px!important}}
+
+
+/* Tools I reach for — visual logo grid */
+.tools-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:14px;margin:48px 0 34px}
+.tool-card{min-height:132px;padding:20px 12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;border:1px solid var(--line);border-radius:16px;background:var(--panel);transition:transform .25s ease,border-color .25s ease}
+.tool-card:hover{transform:translateY(-5px);border-color:var(--accent)}
+.tool-icon{width:48px;height:48px;display:grid;place-items:center;position:relative;border-radius:12px;overflow:hidden}
+.tool-icon img{width:100%;height:100%;object-fit:contain;position:relative;z-index:1}
+.tool-icon span{position:absolute;inset:0;display:grid;place-items:center;font-size:13px;font-weight:700;letter-spacing:.04em;color:var(--ink)}
+.tool-card b{font-size:13px;font-weight:600;text-align:center}
+@media(max-width:600px){.tools-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.tool-card{min-height:112px;padding:14px 6px}.tool-icon{width:40px;height:40px}.tool-card b{font-size:11px}}
