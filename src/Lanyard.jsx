@@ -191,7 +191,7 @@ export default function Lanyard({
     };
   }, [frontImage, imageFit, cardColor, orientation, finish, cornerRadius, size, anchor, strapLength, strapColor, strapWidth, metal, gravity, damping, elasticity, breeze, interactive, intro]);
 
-  return <div ref={wrapRef} className="lanyard lanyard-scene">
+  return <div ref={wrapRef} className="lanyard-scene">
     <canvas ref={canvasRef} aria-label="Interactive swinging portrait ID card" />
   </div>;
 }
