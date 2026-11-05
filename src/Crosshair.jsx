@@ -337,6 +337,11 @@ const Crosshair = ({
       state.clientX = event.clientX;
       state.clientY = event.clientY;
       if (event.pointerType === 'touch' && event.buttons === 0) return;
+      // Keep the crosshair away from the hero's interactive 3D ID-card area.
+      if (event.target instanceof Element && event.target.closest('.hero')) {
+        leave();
+        return;
+      }
       enter();
       retarget(event.target);
       wake();
