@@ -12,7 +12,7 @@ export default function Lanyard({
   size = 0.6,
   anchor = 'center',
   strapLength = 0.5,
-  strapColor = '#111111',
+  strapColor = '#ffffff',
   strapWidth = 0.65,
   metal = 'silver',
   gravity = 1,
